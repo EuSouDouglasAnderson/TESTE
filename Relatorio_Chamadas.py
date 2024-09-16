@@ -42,12 +42,11 @@ def aplicar_filtros(dados, destino, mes, dia_semana, data_inicial, data_final):
 with st.sidebar:
 
     st.image('Imagem_easy_2.png', width=200)
-    st.subheader("MENU - DASHBOARD DE ATENDIMENTOS")
+    st.subheader("MENU - CHAMADAS POR TICKET")
     dados['Data'] = pd.to_datetime(dados['Data'])
     data_inicial = dados['Data'].min().date()
     data_final = dados['Data'].max().date()
     periodo = st.slider('Selecione o período', min_value=data_inicial, max_value=data_final, value=(data_inicial, data_final))
-
     destino_opcoes = ["Todos"] + list(dados['Destino'].unique())
     fDestino = st.selectbox("Selecione o Analista:", options=destino_opcoes)
     meses_opcoes = ["Todos"] + list(dados['Mes'].unique())
@@ -97,10 +96,7 @@ def calcular_totais(dados, ordem_meses):
     chamadas_totais['Mes'] = pd.Categorical(chamadas_totais['Mes'], categories=ordem_meses, ordered=True)
     chamadas_totais = chamadas_totais.sort_values('Mes')
 
-
-
-
- # Calcular o tempo total de atendimento
+# Calcular o tempo total de atendimento
     tempo_total = dados['Tempo'].sum()
     # Converter para segundos
     total_segundos = int(tempo_total.total_seconds())
@@ -112,9 +108,6 @@ def calcular_totais(dados, ordem_meses):
 
 # Formatar como hh:mm:ss
     tempo_total_formatado = f"{horas:02}:{minutos:02}:{segundos:02}"
-
-
-
 
     # Calcular totais
     total_atendimentos = round(chamadas_totais['Total'].sum(), 2)
@@ -130,18 +123,13 @@ def calcular_totais(dados, ordem_meses):
 # Aplicar a função de cálculo
 chamadas_totais, total_atendimentos, total_atendida, total_nao_atendimentos, total_Chamadas_NS, total_NS, tempo_total_formatado = calcular_totais(filtered_data, ordem_meses)
 
-
-
 # Seção de Totais no topo
 st.header(":bar_chart: DASHBOARD DE ATENDIMENTOS")
 
-
-st.markdown("---")
-# Configurações de estilo
 cor_grafico = '#F4F4F4'
 
 # Distribuição das colunas - agora com 5 colunas
-col1, col2, col3, col4, col5 = st.columns([0.50, 0.50, 0.50, 0.50, 0.75])
+col1, col2, col3, col4, col5 = st.columns([0.60, 0.45, 0.45, 0.60, 0.75])
 
 # Exibição das métricas usando st.metric
 with col1:
@@ -219,9 +207,112 @@ graf_combined = alt.layer(graf_linha_atendidas, graf_linha_nao_atendidas, rotulo
 )
 
 # Exibir gráfico combinado
-st.altair_chart(graf_combined, use_container_width=True)
+#st.altair_chart(graf_combined, use_container_width=True)
 
-# Criar gráfico de barras agrupadas para chamadas atendidas e não atendidas por dia da semana
+
+# Definir a ordem correta das horas
+ordem_horas = [str(i) for i in list(range(1, 24)) + [0]]  # Adiciona 0 após 23
+
+# Contar a quantidade de chamadas atendidas por hora
+chamadas_atendidas_hora = filtered_data[filtered_data['Status'] == 'Atendida'].groupby(['Hora']).size().reset_index(name='Quantidade Atendida')
+
+# Contar a quantidade de chamadas não atendidas pelo agente por hora
+chamadas_nao_atendidas_hora = filtered_data[filtered_data['Status'] == 'Não atendida agente'].groupby(['Hora']).size().reset_index(name='Quantidade Não Atendida Agente')
+
+# Juntar as tabelas em uma única
+chamadas_hora_do_dia = chamadas_atendidas_hora.merge(chamadas_nao_atendidas_hora, on='Hora', how='outer').fillna(0)
+
+# Garantir que as horas são tratadas como categorias com a ordem correta
+chamadas_hora_do_dia['Hora'] = pd.Categorical(chamadas_hora_do_dia['Hora'].astype(str), categories=ordem_horas, ordered=True)
+
+# Ordenar os dados pelas horas
+chamadas_hora_do_dia = chamadas_hora_do_dia.sort_values('Hora')
+
+# Criar gráfico de barras agrupadas com matplotlib
+fig, ax = plt.subplots(figsize=(8, 6))
+
+
+
+fig.patch.set_facecolor('#F4F4F4')  # Cor de fundo da figura
+ax.set_facecolor('#F4F4F4')  # Cor de fundo dos eixos
+
+bar_width = 0.35  # Largura das barras
+index = range(len(chamadas_hora_do_dia))
+
+# Barras para chamadas atendidas
+bars1 = ax.bar(index, chamadas_hora_do_dia['Quantidade Atendida'], bar_width, label='Chamadas Atendidas', color='blue')
+
+# Barras para chamadas não atendidas
+bars2 = ax.bar([i + bar_width for i in index], chamadas_hora_do_dia['Quantidade Não Atendida Agente'], bar_width, label='Chamadas Não Atendidas', color='orange')
+
+# Configurar rótulos
+ax.set_xlabel('Hora do Dia')  # Define o rótulo do eixo X
+ax.set_ylabel('Quantidade de Chamadas')  # Define o rótulo do eixo Y
+ax.set_title('Chamadas Atendidas e Não Atendidas por Hora do Dia')  # Define o título do gráfico
+ax.set_xticks([i + bar_width / 2 for i in index])  # Define a posição dos rótulos no eixo X
+ax.set_xticklabels(chamadas_hora_do_dia['Hora'])  # Define os rótulos do eixo X
+ax.legend()  # Adiciona a legenda
+
+# Adicionar rótulos de texto nas barras
+for bar in bars1:
+    yval = bar.get_height()  # Obtém a altura da barra
+    ax.text(bar.get_x() + bar.get_width() / 2, yval + 5, int(yval), ha='center', va='bottom', fontsize=10)  # Adiciona o texto com a quantidade de chamadas
+
+for bar in bars2:
+    yval = bar.get_height()  # Obtém a altura da barra
+    ax.text(bar.get_x() + bar.get_width() / 2, yval + 5, int(yval), ha='center', va='bottom', fontsize=10)  # Adiciona o texto com a quantidade de chamadas
+
+
+duracao_contagem = filtered_data['Duração_Atendimento'].value_counts().reset_index()
+duracao_contagem.columns = ['Duração_Atendimento', 'Quantidade']
+
+total_chamadas = duracao_contagem['Quantidade'].sum()
+duracao_contagem['Porcentagem'] = (duracao_contagem['Quantidade'] / total_chamadas * 100).round(2)
+
+if not filtered_data.empty:
+   
+    duracao_contagem = filtered_data['Duração_Atendimento'].value_counts().reset_index()
+    duracao_contagem.columns = ['Duração_Atendimento', 'Quantidade']
+
+    total_chamadas = duracao_contagem['Quantidade'].sum()
+    duracao_contagem['Porcentagem'] = duracao_contagem['Quantidade'].apply(lambda x: round((x / total_chamadas) * 100, 2))
+
+    # Criar gráfico de barras ordenado do maior para o menor
+    grafico_duracao = alt.Chart(duracao_contagem).mark_bar().encode(
+        x=alt.X('Duração_Atendimento:O', title='Duração do Atendimento', sort='-y'),  # Ordenar pelo eixo y
+        y=alt.Y('Quantidade:Q', title='Quantidade de Chamadas', axis=alt.Axis(grid=False)),
+        color=alt.Color('Duração_Atendimento:N', scale=alt.Scale(domain=['Curto (<= 15 min)', 'Médio (15-30 min)', 'Longo (> 30 min)'], range=['blue', 'orange', 'red']), legend=alt.Legend(title="Duração do Atendimento")),
+        tooltip=['Duração_Atendimento:N', 'Quantidade:Q', 'Porcentagem:Q']  # Adiciona tooltip para exibir a porcentagem
+    ).properties(
+        title='Quantidade de Chamadas por Duração de Atendimento',
+        width=400,
+        height=300
+    )
+
+    rotulo_duracao = grafico_duracao.mark_text(
+        dy=-10,  # Define a distância vertical do texto em relação à barra
+        size=12  # Ajusta o tamanho do texto para evitar sobreposição
+    ).encode(
+        text=alt.Text('Porcentagem:Q', format='.2f')  # Adiciona o texto da porcentagem com formato
+    )
+
+    grafico_com_rotulo = alt.layer(grafico_duracao, rotulo_duracao).properties(
+        title='Quantidade e Porcentagem de Chamadas por Duração de Atendimento'
+    )
+
+    #st.altair_chart(grafico_com_rotulo, use_container_width=True)
+else:
+    st.write("Nenhum dado disponível para exibir.")
+
+plt.tight_layout()  
+#st.pyplot(fig)
+
+
+# GRAFICO HORA A HORA
+st.pyplot(fig)
+
+
+# Dias da Semana
 # Definir a ordem correta dos dias da semana
 ordem_dias_semana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
 
@@ -274,103 +365,70 @@ for bar in bars2:
 plt.tight_layout()  # Ajusta o layout do gráfico
 st.pyplot(fig)  # Exibe o gráfico com Streamlit
 
-# Definir a ordem correta das horas
-ordem_horas = [str(i) for i in list(range(1, 24)) + [0]]  # Adiciona 0 após 23
 
-# Contar a quantidade de chamadas atendidas por hora
-chamadas_atendidas_hora = filtered_data[filtered_data['Status'] == 'Atendida'].groupby(['Hora']).size().reset_index(name='Quantidade Atendida')
+# GRAFICO MES A MES
+st.altair_chart(graf_combined, use_container_width=True)
 
-# Contar a quantidade de chamadas não atendidas pelo agente por hora
-chamadas_nao_atendidas_hora = filtered_data[filtered_data['Status'] == 'Não atendida agente'].groupby(['Hora']).size().reset_index(name='Quantidade Não Atendida Agente')
+#Duração 
+st.altair_chart(grafico_com_rotulo, use_container_width=True)
 
-# Juntar as tabelas em uma única
-chamadas_hora_do_dia = chamadas_atendidas_hora.merge(chamadas_nao_atendidas_hora, on='Hora', how='outer').fillna(0)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Contar a quantidade de chamadas não atendidas por hora
+chamadas_nao_atendidas_hora = filtered_data[filtered_data['Status'] == 'Não atendida'].groupby(['Hora']).size().reset_index(name='Quantidade Não Atendida')
 
 # Garantir que as horas são tratadas como categorias com a ordem correta
-chamadas_hora_do_dia['Hora'] = pd.Categorical(chamadas_hora_do_dia['Hora'].astype(str), categories=ordem_horas, ordered=True)
+ordem_horas = [str(h) for h in range(24)]  # Lista com horas de 0 a 23
+chamadas_nao_atendidas_hora['Hora'] = pd.Categorical(chamadas_nao_atendidas_hora['Hora'].astype(str), categories=ordem_horas, ordered=True)
 
 # Ordenar os dados pelas horas
-chamadas_hora_do_dia = chamadas_hora_do_dia.sort_values('Hora')
+chamadas_nao_atendidas_hora = chamadas_nao_atendidas_hora.sort_values('Hora')
 
-# Criar gráfico de barras agrupadas com matplotlib
+# Criar gráfico de barras com matplotlib
 fig, ax = plt.subplots(figsize=(8, 6))
+
 fig.patch.set_facecolor('#F4F4F4')  # Cor de fundo da figura
 ax.set_facecolor('#F4F4F4')  # Cor de fundo dos eixos
 
 bar_width = 0.35  # Largura das barras
-index = range(len(chamadas_hora_do_dia))
-
-# Barras para chamadas atendidas
-bars1 = ax.bar(index, chamadas_hora_do_dia['Quantidade Atendida'], bar_width, label='Chamadas Atendidas', color='blue')
+index = range(len(chamadas_nao_atendidas_hora))
 
 # Barras para chamadas não atendidas
-bars2 = ax.bar([i + bar_width for i in index], chamadas_hora_do_dia['Quantidade Não Atendida Agente'], bar_width, label='Chamadas Não Atendidas', color='orange')
+bars = ax.bar(index, chamadas_nao_atendidas_hora['Quantidade Não Atendida'], bar_width, label='Chamadas Não Atendidas', color='orange')
 
 # Configurar rótulos
 ax.set_xlabel('Hora do Dia')  # Define o rótulo do eixo X
-ax.set_ylabel('Quantidade de Chamadas')  # Define o rótulo do eixo Y
-ax.set_title('Chamadas Atendidas e Não Atendidas por Hora do Dia')  # Define o título do gráfico
-ax.set_xticks([i + bar_width / 2 for i in index])  # Define a posição dos rótulos no eixo X
-ax.set_xticklabels(chamadas_hora_do_dia['Hora'])  # Define os rótulos do eixo X
+ax.set_ylabel('Quantidade de Chamadas Não Atendidas')  # Define o rótulo do eixo Y
+ax.set_title('Chamadas Não Atendidas por Hora do Dia')  # Define o título do gráfico
+ax.set_xticks(index)  # Define a posição dos rótulos no eixo X
+ax.set_xticklabels(chamadas_nao_atendidas_hora['Hora'])  # Define os rótulos do eixo X
 ax.legend()  # Adiciona a legenda
 
 # Adicionar rótulos de texto nas barras
-for bar in bars1:
+for bar in bars:
     yval = bar.get_height()  # Obtém a altura da barra
     ax.text(bar.get_x() + bar.get_width() / 2, yval + 5, int(yval), ha='center', va='bottom', fontsize=10)  # Adiciona o texto com a quantidade de chamadas
 
-for bar in bars2:
-    yval = bar.get_height()  # Obtém a altura da barra
-    ax.text(bar.get_x() + bar.get_width() / 2, yval + 5, int(yval), ha='center', va='bottom', fontsize=10)  # Adiciona o texto com a quantidade de chamadas
-
-# Contar a quantidade de chamadas em cada categoria de duração
-duracao_contagem = filtered_data['Duração_Atendimento'].value_counts().reset_index()
-duracao_contagem.columns = ['Duração_Atendimento', 'Quantidade']
-
-# Calcular a porcentagem de cada categoria
-total_chamadas = duracao_contagem['Quantidade'].sum()
-duracao_contagem['Porcentagem'] = (duracao_contagem['Quantidade'] / total_chamadas * 100).round(2)
-
-# Verificar se os dados filtrados não estão vazios
-if not filtered_data.empty:
-    # Contar a quantidade de chamadas em cada categoria de duração
-    duracao_contagem = filtered_data['Duração_Atendimento'].value_counts().reset_index()
-    duracao_contagem.columns = ['Duração_Atendimento', 'Quantidade']
-
-    # Calcular a porcentagem de cada categoria
-    total_chamadas = duracao_contagem['Quantidade'].sum()
-    duracao_contagem['Porcentagem'] = duracao_contagem['Quantidade'].apply(lambda x: round((x / total_chamadas) * 100, 2))
-
-    # Criar gráfico de barras ordenado do maior para o menor
-    grafico_duracao = alt.Chart(duracao_contagem).mark_bar().encode(
-        x=alt.X('Duração_Atendimento:O', title='Duração do Atendimento', sort='-y'),  # Ordenar pelo eixo y
-        y=alt.Y('Quantidade:Q', title='Quantidade de Chamadas', axis=alt.Axis(grid=False)),
-        color=alt.Color('Duração_Atendimento:N', scale=alt.Scale(domain=['Curto (<= 15 min)', 'Médio (15-30 min)', 'Longo (> 30 min)'], range=['blue', 'orange', 'red']), legend=alt.Legend(title="Duração do Atendimento")),
-        tooltip=['Duração_Atendimento:N', 'Quantidade:Q', 'Porcentagem:Q']  # Adiciona tooltip para exibir a porcentagem
-    ).properties(
-        title='Quantidade de Chamadas por Duração de Atendimento',
-        width=400,
-        height=300
-    )
-
-    # Adicionar rótulos de porcentagem
-    rotulo_duracao = grafico_duracao.mark_text(
-        dy=-10,  # Define a distância vertical do texto em relação à barra
-        size=12  # Ajusta o tamanho do texto para evitar sobreposição
-    ).encode(
-        text=alt.Text('Porcentagem:Q', format='.2f')  # Adiciona o texto da porcentagem com formato
-    )
-
-    # Exibir gráfico com rótulos e linha de referência
-    grafico_com_rotulo = alt.layer(grafico_duracao, rotulo_duracao).properties(
-        title='Quantidade e Porcentagem de Chamadas por Duração de Atendimento'
-    )
-
-    st.altair_chart(grafico_com_rotulo, use_container_width=True)
-else:
-    st.write("Nenhum dado disponível para exibir.")
-
-# Ajustar layout e exibir gráfico de horas
-plt.tight_layout()  # Ajusta o layout do gráfico
-
-st.pyplot(fig)  # Exibe o gráfico com Streamlit
+# Exibir o gráfico no Streamlit
+#st.pyplot(fig)
