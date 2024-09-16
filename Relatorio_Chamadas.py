@@ -42,7 +42,7 @@ def aplicar_filtros(dados, destino, mes, dia_semana, data_inicial, data_final):
 with st.sidebar:
 
     st.image('Imagem_easy_2.png', width=200)
-    st.subheader("MENU - CHAMADAS POR TICKET")
+    st.subheader("MENU - DASHBOARD DE ATENDIMENTOS")
     dados['Data'] = pd.to_datetime(dados['Data'])
     data_inicial = dados['Data'].min().date()
     data_final = dados['Data'].max().date()
@@ -124,7 +124,7 @@ def calcular_totais(dados, ordem_meses):
 chamadas_totais, total_atendimentos, total_atendida, total_nao_atendimentos, total_Chamadas_NS, total_NS, tempo_total_formatado = calcular_totais(filtered_data, ordem_meses)
 
 # Seção de Totais no topo
-st.header(":bar_chart: DASHBOARD DE ATENDIMENTOS")
+st.header(":bar_chart: CHAMADA POR TICKET")
 
 cor_grafico = '#F4F4F4'
 
