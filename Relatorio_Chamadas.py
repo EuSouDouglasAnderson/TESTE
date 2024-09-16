@@ -124,7 +124,7 @@ def calcular_totais(dados, ordem_meses):
 chamadas_totais, total_atendimentos, total_atendida, total_nao_atendimentos, total_Chamadas_NS, total_NS, tempo_total_formatado = calcular_totais(filtered_data, ordem_meses)
 
 # Seção de Totais no topo
-st.header(":bar_chart: CHAMADA POR TICKET")
+st.header(":bar_chart: DASHBOARD DE ATENDIMENTOS")
 
 cor_grafico = '#F4F4F4'
 
